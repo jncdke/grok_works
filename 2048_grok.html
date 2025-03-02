@@ -12,7 +12,7 @@
             background-color: #faf8ef;
             margin: 0;
             padding: 20px;
-            touch-action: none; /* 防止浏览器默认触摸行为干扰 */
+            touch-action: none;
         }
         h1 {
             color: #776e65;
@@ -29,7 +29,7 @@
             padding: 15px;
             border-radius: 10px;
             display: inline-block;
-            touch-action: none; /* 确保触摸事件只在游戏区域内生效 */
+            touch-action: none;
         }
         #grid {
             display: grid;
@@ -63,7 +63,10 @@
         #controls {
             margin-top: 20px;
             display: flex;
+            flex-wrap: wrap;
             gap: 10px;
+            align-items: center;
+            justify-content: center;
         }
         button {
             padding: 10px 20px;
@@ -78,6 +81,18 @@
         button:hover {
             background-color: #9f8b77;
         }
+        #tokenInput {
+            padding: 5px;
+            width: 200px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        #uploadStatus {
+            font-size: 16px;
+            color: #666;
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
@@ -91,7 +106,11 @@
         <button onclick="slideDown()">下</button>
         <button onclick="slideLeft()">左</button>
         <button onclick="slideRight()">右</button>
-        <button onclick="exportData()">导出数据</button>
+        <div style="display: flex; align-items: center;">
+            <input type="text" id="tokenInput" placeholder="输入 GitHub Token">
+            <button onclick="exportData()">导出数据到 GitHub</button>
+            <span id="uploadStatus"></span>
+        </div>
     </div>
 
     <script>
@@ -265,22 +284,62 @@
             updateScore();
         }
 
-        // 导出游戏数据为 JSON 文件
-        function exportData() {
+        // 导出数据到 GitHub 仓库
+        async function exportData() {
             if (gameHistory.length === 0) {
                 alert("还没有游戏数据可导出！");
                 return;
             }
+
+            const token = document.getElementById('tokenInput').value.trim();
+            if (!token) {
+                alert("请先输入 GitHub Personal Access Token！");
+                return;
+            }
+
+            const statusElement = document.getElementById('uploadStatus');
+            statusElement.textContent = '正在上传...';
+
+            // 生成唯一文件名（基于时间戳）
+            const date = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `game_data/game_data_${date}.json`;
+
+            // 准备数据
             const dataStr = JSON.stringify(gameHistory, null, 2);
-            const blob = new Blob([dataStr], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = "2048_game_data.json";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+            const content = btoa(unescape(encodeURIComponent(dataStr))); // Base64 编码
+
+            // GitHub API 请求
+            const owner = "jncdke"; // 替换为你的 GitHub 用户名
+            const repo = "x-likes-viewer"; // 替换为你的仓库名
+            const path = filename;
+            const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `Upload 2048 game data ${date}`,
+                        content: content
+                    })
+                });
+
+                if (response.ok) {
+                    statusElement.textContent = '上传成功！';
+                    alert(`游戏数据已上传到 GitHub: ${path}`);
+                } else {
+                    const errorData = await response.json();
+                    statusElement.textContent = '上传失败';
+                    alert(`上传失败：${errorData.message || response.statusText}`);
+                }
+            } catch (error) {
+                statusElement.textContent = '上传失败';
+                alert(`上传失败：${error.message}`);
+            }
         }
 
         // 键盘控制
@@ -310,25 +369,21 @@
 
             const deltaX = endX - startX;
             const deltaY = endY - startY;
-            const threshold = 30; // 滑动距离阈值
+            const threshold = 30;
 
-            // 确保滑动距离足够，避免误触发
             if (Math.abs(deltaX) < threshold && Math.abs(deltaY) < threshold) return;
 
-            // 判断主要滑动方向
             if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                // 水平滑动
                 if (deltaX > 0) {
-                    slideRight(); // 向右滑动
+                    slideRight();
                 } else {
-                    slideLeft(); // 向左滑动
+                    slideLeft();
                 }
             } else {
-                // 垂直滑动
                 if (deltaY > 0) {
-                    slideDown(); // 向下滑动
+                    slideDown();
                 } else {
-                    slideUp(); // 向上滑动
+                    slideUp();
                 }
             }
         });
