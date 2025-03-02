@@ -12,6 +12,7 @@
             background-color: #faf8ef;
             margin: 0;
             padding: 20px;
+            touch-action: none; /* 防止浏览器默认触摸行为干扰 */
         }
         h1 {
             color: #776e65;
@@ -28,6 +29,7 @@
             padding: 15px;
             border-radius: 10px;
             display: inline-block;
+            touch-action: none; /* 确保触摸事件只在游戏区域内生效 */
         }
         #grid {
             display: grid;
@@ -96,7 +98,7 @@
         const GRID_SIZE = 4;
         let grid = [];
         let score = 0;
-        let gameHistory = []; // 记录每一步的游戏数据
+        let gameHistory = [];
 
         // 初始化游戏
         function initGame() {
@@ -127,7 +129,7 @@
 
         // 保存当前步骤
         function saveStep(action) {
-            const gridCopy = grid.map(row => [...row]); // 深拷贝网格
+            const gridCopy = grid.map(row => [...row]);
             gameHistory.push({ grid: gridCopy, action });
         }
 
@@ -156,9 +158,9 @@
         function checkGameOver() {
             for (let i = 0; i < GRID_SIZE; i++) {
                 for (let j = 0; j < GRID_SIZE; j++) {
-                    if (grid[i][j] === 0) return; // 有空位
-                    if (i < GRID_SIZE - 1 && grid[i][j] === grid[i + 1][j]) return; // 可垂直合并
-                    if (j < GRID_SIZE - 1 && grid[i][j] === grid[i][j + 1]) return; // 可水平合并
+                    if (grid[i][j] === 0) return;
+                    if (i < GRID_SIZE - 1 && grid[i][j] === grid[i + 1][j]) return;
+                    if (j < GRID_SIZE - 1 && grid[i][j] === grid[i][j + 1]) return;
                 }
             }
             alert('游戏结束！');
@@ -166,10 +168,10 @@
 
         // 滑动逻辑（以向右为例，其他方向类似）
         function slideRight() {
-            saveStep(3); // 记录动作（右=3）
+            saveStep(3);
             let moved = false;
             for (let i = 0; i < GRID_SIZE; i++) {
-                let row = grid[i].filter(val => val !== 0); // 去掉0
+                let row = grid[i].filter(val => val !== 0);
                 for (let j = row.length - 1; j > 0; j--) {
                     if (row[j] === row[j - 1]) {
                         row[j] *= 2;
@@ -178,7 +180,7 @@
                         moved = true;
                     }
                 }
-                while (row.length < GRID_SIZE) row.unshift(0); // 补0
+                while (row.length < GRID_SIZE) row.unshift(0);
                 if (grid[i].join('') !== row.join('')) moved = true;
                 grid[i] = row;
             }
@@ -188,7 +190,7 @@
         }
 
         function slideLeft() {
-            saveStep(2); // 记录动作（左=2）
+            saveStep(2);
             let moved = false;
             for (let i = 0; i < GRID_SIZE; i++) {
                 let row = grid[i].filter(val => val !== 0);
@@ -210,7 +212,7 @@
         }
 
         function slideUp() {
-            saveStep(0); // 记录动作（上=0）
+            saveStep(0);
             let moved = false;
             for (let j = 0; j < GRID_SIZE; j++) {
                 let col = [];
@@ -237,7 +239,7 @@
         }
 
         function slideDown() {
-            saveStep(1); // 记录动作（下=1）
+            saveStep(1);
             let moved = false;
             for (let j = 0; j < GRID_SIZE; j++) {
                 let col = [];
@@ -280,6 +282,7 @@
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
         }
+
         // 键盘控制
         document.addEventListener("keydown", (e) => {
             switch (e.key) {
@@ -287,6 +290,46 @@
                 case "ArrowDown": slideDown(); break;
                 case "ArrowLeft": slideLeft(); break;
                 case "ArrowRight": slideRight(); break;
+            }
+        });
+
+        // 触摸滑动控制
+        const gameContainer = document.getElementById('game-container');
+        let startX, startY;
+
+        gameContainer.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            startX = touch.clientX;
+            startY = touch.clientY;
+        });
+
+        gameContainer.addEventListener('touchend', (e) => {
+            const touch = e.changedTouches[0];
+            const endX = touch.clientX;
+            const endY = touch.clientY;
+
+            const deltaX = endX - startX;
+            const deltaY = endY - startY;
+            const threshold = 30; // 滑动距离阈值
+
+            // 确保滑动距离足够，避免误触发
+            if (Math.abs(deltaX) < threshold && Math.abs(deltaY) < threshold) return;
+
+            // 判断主要滑动方向
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                // 水平滑动
+                if (deltaX > 0) {
+                    slideRight(); // 向右滑动
+                } else {
+                    slideLeft(); // 向左滑动
+                }
+            } else {
+                // 垂直滑动
+                if (deltaY > 0) {
+                    slideDown(); // 向下滑动
+                } else {
+                    slideUp(); // 向上滑动
+                }
             }
         });
 
