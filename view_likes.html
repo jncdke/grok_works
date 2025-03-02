@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>我的X点赞备份</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .tweet {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            background-color: #fff;
+            max-width: 600px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            float: left;
+            margin-right: 10px;
+        }
+        .username {
+            font-weight: bold;
+            color: #1DA1F2;
+        }
+        .text {
+            margin: 5px 0;
+            color: #333;
+        }
+        .images {
+            margin-top: 10px;
+        }
+        .image {
+            max-width: 100%;
+            border-radius: 8px;
+            margin: 5px 0;
+        }
+        .timestamp {
+            color: #888;
+            font-size: 0.9em;
+        }
+        .container {
+            margin: 0 auto;
+            max-width: 1200px;
+        }
+        .input-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>我的X点赞内容</h1>
+    <div class="input-container">
+        <input type="file" id="jsonFileInput" accept=".json">
+    </div>
+    <div class="container" id="tweets"></div>
+
+    <script>
+        document.getElementById('jsonFileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    const container = document.getElementById('tweets');
+                    container.innerHTML = ''; // 清空旧内容
+                    data.forEach(tweet => {
+                        if (!tweet.text && !tweet.timestamp) return; // 跳过无效记录
+                        const div = document.createElement('div');
+                        div.className = 'tweet';
+                        div.innerHTML = `
+                            ${tweet.avatar ? `<img src="${tweet.avatar}" class="avatar" onerror="this.style.display='none'">` : ''}
+                            <span class="username">${tweet.username}</span>
+                            <p class="text">${tweet.text || '[无文本]'}</p>
+                            <div class="images">
+                                ${tweet.images.map(img => `<img src="${img}" class="image" onerror="this.style.display='none'">`).join('')}
+                            </div>
+                            <div class="timestamp">${tweet.timestamp ? new Date(tweet.timestamp).toLocaleString() : '[无时间]'}</div>
+                        `;
+                        container.appendChild(div);
+                    });
+                } catch (error) {
+                    console.error('解析JSON失败:', error);
+                    document.getElementById('tweets').innerHTML = '<p>解析JSON失败，请确保选择正确的文件。</p>';
+                }
+            };
+            reader.readAsText(file);
+        });
+    </script>
+</body>
+</html>
