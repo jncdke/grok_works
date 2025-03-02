@@ -309,8 +309,8 @@
             const content = btoa(unescape(encodeURIComponent(dataStr))); // Base64 编码
 
             // GitHub API 请求
-            const owner = "jncdke"; // 替换为你的 GitHub 用户名
-            const repo = "x-likes-viewer"; // 替换为你的仓库名
+            const owner = "jncdke";
+            const repo = "jncdke.github.io"; // 修改为你的实际仓库名
             const path = filename;
             const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
@@ -328,13 +328,13 @@
                     })
                 });
 
+                const responseData = await response.json();
                 if (response.ok) {
                     statusElement.textContent = '上传成功！';
                     alert(`游戏数据已上传到 GitHub: ${path}`);
                 } else {
-                    const errorData = await response.json();
                     statusElement.textContent = '上传失败';
-                    alert(`上传失败：${errorData.message || response.statusText}`);
+                    alert(`上传失败：${response.status} - ${responseData.message || response.statusText}`);
                 }
             } catch (error) {
                 statusElement.textContent = '上传失败';
