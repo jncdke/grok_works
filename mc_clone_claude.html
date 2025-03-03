@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Phaser Minecraft Clone</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            overflow: hidden;
+        }
+        
+        #game-container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        canvas {
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        
+        #mobile-controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: none;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-sizing: border-box;
+            pointer-events: none;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .movement-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 60px);
+            grid-template-rows: repeat(3, 60px);
+            gap: 5px;
+        }
+        
+        .action-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .mobile-btn {
+            width: 60px;
+            height: 60px;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            color: white;
+            user-select: none;
+            pointer-events: auto;
+            touch-action: manipulation;
+        }
+        
+        .mobile-btn.active {
+            background-color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .inventory-slot {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 5px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .slot {
+            width: 40px;
+            height: 40px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .slot.active {
+            border-color: white;
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+        
+        .loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
+            z-index: 100;
+        }
+        
+        .loading-bar-container {
+            width: 300px;
+            height: 20px;
+            background-color: #333;
+            margin-top: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .loading-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #4CAF50;
+            transition: width 0.3s;
+        }
+        
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            pointer-events: none;
+        }
+        
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background-color: white;
+        }
+        
+        #crosshair::before {
+            width: 20px;
+            height: 2px;
+            top: 9px;
+        }
+        
+        #crosshair::after {
+            width: 2px;
+            height: 20px;
+            left: 9px;
+        }
+        
+        #health-bar {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 200px;
+            height: 15px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 7px;
+            overflow: hidden;
+        }
+        
+        #health-fill {
+            height: 100%;
+            width: 100%;
+            background-color: #f44336;
+        }
+        
+        #debug-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            font-family: monospace;
+            font-size: 12px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 5px;
+            border-radius: 5px;
+        }
+        
+        @media (max-width: 1024px) {
+            #mobile-controls {
+                display: flex;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+    
+    <div id="crosshair"></div>
+    
+    <div id="health-bar">
+        <div id="health-fill"></div>
+    </div>
+    
+    <div id="debug-info"></div>
+    
+    <div class="inventory-slot">
+        <div class="slot" data-index="0"></div>
+        <div class="slot" data-index="1"></div>
+        <div class="slot" data-index="2"></div>
+        <div class="slot" data-index="3"></div>
+        <div class="slot" data-index="4"></div>
+        <div class="slot active" data-index="5"></div>
+        <div class="slot" data-index="6"></div>
+        <div class="slot" data-index="7"></div>
+        <div class="slot" data-index="8"></div>
+    </div>
+    
+    <div id="mobile-controls">
+        <div class="control-group">
+            <div class="movement-controls">
+                <div></div>
+                <div class="mobile-btn" id="up">↑</div>
+                <div></div>
+                <div class="mobile-btn" id="left">←</div>
+                <div></div>
+                <div class="mobile-btn" id="right">→</div>
+                <div></div>
+                <div class="mobile-btn" id="down">↓</div>
+                <div></div>
+            </div>
+            <div class="mobile-btn" id="jump">Jump</div>
+        </div>
+        <div class="control-group">
+            <div class="mobile-btn" id="place">Place</div>
+            <div class="mobile-btn" id="destroy">Break</div>
+            <div class="mobile-btn" id="inventory">Inv</div>
+        </div>
+    </div>
+    
+    <div class="loading">
+        <h1>Loading Minecraft Clone</h1>
+        <div class="loading-bar-container">
+            <div class="loading-bar" id="loading-progress"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Main game configuration
+        const gameConfig = {
+            type: Phaser.WEBGL,
+            width: window.innerWidth,
+            height: window.innerHeight,
+            parent: 'game-container',
+            backgroundColor: '#87CEEB',
+            scene: {
+                preload: preload,
+                create: create,
+                update: update
+            },
+            physics: {
+                default: 'arcade',
+                arcade: {
+                    gravity: { y: 1000 },
+                    debug: false
+                }
+            },
+            scale: {
+                mode: Phaser.Scale.RESIZE,
+                autoCenter: Phaser.Scale.CENTER_BOTH
+            },
+            audio: {
+                disableWebAudio: false
+            }
+        };
+        
+        // Game instance
+        const game = new Phaser.Game(gameConfig);
+        
+        // Global variables
+        let player;
+        let cursors;
+        let blocks;
+        let blockTypes = [
+            { key: 'dirt', name: 'Dirt' },
+            { key: 'grass', name: 'Grass' },
+            { key: 'stone', name: 'Stone' },
+            { key: 'wood', name: 'Wood' },
+            { key: 'leaves', name: 'Leaves' },
+            { key: 'sand', name: 'Sand' },
+            { key: 'water', name: 'Water' },
+            { key: 'bedrock', name: 'Bedrock' },
+            { key: 'coal', name: 'Coal' }
+        ];
+        let selectedBlockIndex = 5;
+        let worldData = {};
+        let chunkSize = 16;
+        let blockSize = 32;
+        let worldSizeChunks = 16;
+        let gravity = 1000;
+        let jumpVelocity = -500;
+        let moveSpeed = 200;
+        let timeOfDay = 0;
+        let skyColor;
+        let debugText;
+        let playerHealth = 100;
+        let inventory = [
+            { type: 'grass', count: 64 },
+            { type: 'dirt', count: 64 },
+            { type: 'stone', count: 64 },
+            { type: 'wood', count: 64 },
+            { type: 'leaves', count: 64 },
+            { type: 'sand', count: 64 },
+            { type: 'coal', count: 10 },
+            { type: 'water', count: 10 },
+            { type: 'bedrock', count: 5 }
+        ];
+        let mobileControls = {
+            up: false,
+            down: false,
+            left: false,
+            right: false,
+            jump: false,
+            place: false,
+            destroy: false
+        };
+        let isMobile = false;
+        let blockBreakingSounds;
+        let blockPlacingSounds;
+        let ambientSounds;
+        let walkingSounds;
+        let music;
+        let cameraRotationX = 0;
+        let cameraRotationY = 0;
+        let isPointerLocked = false;
+        let isInventoryOpen = false;
+        let worldHeight = 128;
+        let seaLevel = 64;
+        let trees = [];
+        let ores = [];
+        let animals = [];
+        let weather = 'clear';
+        let biomes = ['plains', 'forest', 'desert', 'mountains'];
+        let currentBiome = 'plains';
+        let lastChunkX = 0;
+        let lastChunkZ = 0;
+        let camera;
+        let dayLength = 60000; // 1 minute day-night cycle
+        let perlinNoise;
+        let waterAnimTimer;
+        let lighting = true;
+        let shadows = [];
+        let particleEmitters = {};
+        
+        // 3D world simulation variables
+        let projectionMatrix = {};
+        let blockDepth = 32;
+        let player3D = {
+            x: 0,
+            y: 0,
+            z: 0,
+            rotationX: 0,
+            rotationY: 0,
+            rotationZ: 0,
+            height: 1.8,
+            width: 0.6,
+            depth: 0.6,
+            eyeHeight: 1.6
+        };
+        
+        // Minecraft-specific mechanics
+        let hunger = 100;
+        let experience = 0;
+        let level = 0;
+        let crafting = {
+            recipes: [
+                { output: 'wood_planks', count: 4, ingredients: [{ type: 'wood', count: 1 }] },
+                { output: 'sticks', count: 4, ingredients: [{ type: 'wood_planks', count: 2 }] },
+                { output: 'wooden_pickaxe', count: 1, ingredients: [
+                    { type: 'wood_planks', count: 3 },
+                    { type: 'sticks', count: 2 }
+                ]}
+            ],
+            craftingTable: false
+        };
+        
+        // Noise generation for terrain
+        function createNoise2D(seed) {
+            const permutation = new Array(512);
+            const p = new Array(256).fill(0).map((_, i) => i);
+            
+            // Fischer-Yates shuffle
+            let j, tmp;
+            for (let i = 255; i > 0; i--) {
+                j = Math.floor(Math.random() * (i + 1));
+                tmp = p[i];
+                p[i] = p[j];
+                p[j] = tmp;
+            }
+            
+            for (let i = 0; i < 256; i++) {
+                permutation[i] = permutation[i + 256] = p[i];
+            }
+            
+            function fade(t) {
+                return t * t * t * (t * (t * 6 - 15) + 10);
+            }
+            
+            function lerp(t, a, b) {
+                return a + t * (b - a);
+            }
+            
+            function grad(hash, x, y, z) {
+                const h = hash & 15;
+                const u = h < 8 ? x : y;
+                const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
+                return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+            }
+            
+            return {
+                noise: function(x, y, z = 0) {
+                    const X = Math.floor(x) & 255;
+                    const Y = Math.floor(y) & 255;
+                    const Z = Math.floor(z) & 255;
+                    
+                    x -= Math.floor(x);
+                    y -= Math.floor(y);
+                    z -= Math.floor(z);
+                    
+                    const u = fade(x);
+                    const v = fade(y);
+                    const w = fade(z);
+                    
+                    const A = permutation[X] + Y;
+                    const AA = permutation[A] + Z;
+                    const AB = permutation[A + 1] + Z;
+                    const B = permutation[X + 1] + Y;
+                    const BA = permutation[B] + Z;
+                    const BB = permutation[B + 1] + Z;
+                    
+                    return lerp(
+                        w,
+                        lerp(
+                            v,
+                            lerp(
+                                u,
+                                grad(permutation[AA], x, y, z),
+                                grad(permutation[BA], x - 1, y, z)
+                            ),
+                            lerp(
+                                u,
+                                grad(permutation[AB], x, y - 1, z),
+                                grad(permutation[BB], x - 1, y - 1, z)
+                            )
+                        ),
+                        lerp(
+                            v,
+                            lerp(
+                                u,
+                                grad(permutation[AA + 1], x, y, z - 1),
+                                grad(permutation[BA + 1], x - 1, y, z - 1)
+                            ),
+                            lerp(
+                                u,
+                                grad(permutation[AB + 1], x, y - 1, z - 1),
+                                grad(permutation[BB + 1], x - 1, y - 1, z - 1)
+                            )
+                        )
+                    );
+                }
+            };
+        }
+        
+        // Preload game assets
+        function preload() {
+            this.load.image('player', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA8klEQVRYR+2Xyw3DIAyGjdgBtTN01NwjtVN0lN6pA2SElGhR5RiHmJeq/JcI+fD32YRh8DMMvj+UAU7fN2uVaRqqDAD4GwCqbRPCzxl7HaTLACz7V5L5S0pYcgYAVBmApYzq3DvEUgbw7b96/zBJyQRAaFRnbpYYgPJc6/XDtN8a/wQARJeZOiB0VJpzmXvueQAwM8QK4AsQAE4xoKxcAGI9gJzHDoCc8woQct4EwOW8CYDJeTNA6LwLgKrzLgBsL36VdQfQcl4FQN15FYC2cy4A3HepP6ICOLac+wKoOvcF0HTuCZD7WxUdQN25F0DX+QeA9a9/ATHPozYNE/u7AAAAAElFTkSuQmCC');
+            
+            // Block textures (using base64 placeholders)
+            const blockColors = {
+                'dirt': '#8B4513',
+                'grass': '#7CFC00',
+                'stone': '#A9A9A9',
+                'wood': '#D2691E',
+                'leaves': '#228B22',
+                'sand': '#F4A460',
+                'water': '#1E90FF',
+                'bedrock': '#696969',
+                'coal': '#2F4F4F'
+            };
+            
+            // Generate block textures dynamically
+            Object.entries(blockColors).forEach(([type, color]) => {
+                this.textures.generate(type, { data: generateBlockTexture(type, color), pixelWidth: 16 });
+            });
+            
+            // Sound effects
+            this.load.audio('block_break', 'data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA0xhdmY1OC4yOS4xMDAgKGNvbXBhdGlibGUpVElUMgAAABgAAANMZWFkIFN5bnRoIHwgU3luYXBlIEF1ZElEMwAAABQAAANodHRwOi8vd3d3LmlkMy5vcmcvVFNTRQAAAA8AAANMYXZmNTguMjkuMTAwAAAAAAAAAAAAAAD/80DEACEEpXv0yYEQJNDQl2FBkP9KkZWytH9k6iccq///3Svf/zQ7LbZeoXp43O1qcLzG3//////////y9jn1FV6iu/////+kkdXCCQcUHwfB8Hwf//pJSUpScHB8HwfB8HwEgEgEgEgEg');
+            this.load.audio('block_place', 'data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA0xhdmY1OC4yOS4xMDAgKGNvbXBhdGlibGUpVElUMgAAABgAAANMZWFkIFN5bnRoIHwgU3luYXBlIEF1ZElEMwAAABQAAANodHRwOi8vd3d3LmlkMy5vcmcvVFNTRQAAAA8AAANMYXZmNTguMjkuMTAwAAAAAAAAAAAAAAD/80DEACEEpXv0yYEQJNDQl2FBkP9KkZWytH9k6iccq///3Svf/zQ7LbZeoXp43O1qcLzG3//////////y9jn1FV6iu/////+kkdXCCQcUHwfB8Hwf//pJSUpScHB8HwfB8HwEgEgEgEgEg');
+            this.load.audio('walk', 'data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA0xhdmY1OC4yOS4xMDAgKGNvbXBhdGlibGUpVElUMgAAABgAAANMZWFkIFN5bnRoIHwgU3luYXBlIEF1ZElEMwAAABQAAANodHRwOi8vd3d3LmlkMy5vcmcvVFNTRQAAAA8AAANMYXZmNTguMjkuMTAwAAAAAAAAAAAAAAD/80DEACEEpXv0yYEQJNDQl2FBkP9KkZWytH9k6iccq///3Svf/zQ7LbZeoXp43O1qcLzG3//////////y9jn1FV6iu/////+kkdXCCQcUHwfB8Hwf//pJSUpScHB8HwfB8HwEgEgEgEgEg');
+            this.load.audio('ambience', 'data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA0xhdmY1OC4yOS4xMDAgKGNvbXBhdGlibGUpVElUMgAAABgAAANMZWFkIFN5bnRoIHwgU3luYXBlIEF1ZElEMwAAABQAAANodHRwOi8vd3d3LmlkMy5vcmcvVFNTRQAAAA8AAANMYXZmNTguMjkuMTAwAAAAAAAAAAAAAAD/80DEACEEpXv0yYEQJNDQl2FBkP9KkZWytH9k6iccq///3Svf/zQ7LbZeoXp43O1qcLzG3//////////y9jn1FV6iu/////+kkdXCCQcUHwfB8Hwf//pJSUpScHB8HwfB8HwEgEgEgEgEg');
+            this.load.audio('music', 'data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA0xhdmY1OC4yOS4xMDAgKGNvbXBhdGlibGUpVElUMgAAABgAAANMZWFkIFN5bnRoIHwgU3luYXBlIEF1ZElEMwAAABQAAANodHRwOi8vd3d3LmlkMy5vcmcvVFNTRQAAAA8AAANMYXZmNTguMjkuMTAwAAAAAAAAAAAAAAD/80DEACEEpXv0yYEQJNDQl2FBkP9KkZWytH9k6iccq///3Svf/zQ7LbZeoXp43O1qcLzG3//////////y9jn1FV6iu/////+kkdXCCQcUHwfB8Hwf//pJSUpScHB8HwfB8HwEgEgEgEgEg');
+            
+            // Update loading progress
+            this.load.on('progress', function (value) {
+                document.getElementById('loading-progress').style.width = Math.floor(value * 100) + '%';
+            });
+            
+            this.load.on('complete', function () {
+                setTimeout(() => {
+                    document.querySelector('.loading').style.display = 'none';
+                }, 1000);
+            });
+        }
+        
+        // Generate block textures
+        function generateBlockTexture(type, baseColor) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 16;
+            canvas.height = 16;
+            const ctx = canvas.getContext('2d');
+            
+            // Fill with base color
+            ctx.fillStyle = baseColor;
+            ctx.fillRect(0, 0, 16, 16);
+            
+            // Add texture details
+            switch (type) {
+                case 'dirt':
+                    addNoise(ctx, '#5D2906', 0.3);
+                    break;
+                case 'grass':
+                    // Add dirt to bottom
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(0, 12, 16, 4);
+                    // Add grass details
+                    addNoise(ctx, '#3A7D15', 0.2);
+                    break;
+                case 'stone':
+                    addNoise(ctx, '#7A7A7A', 0.2);
+                    addCracks(ctx, '#505050');
+                    break;
+                case 'wood':
+                    addWoodGrain(ctx, '#A0522D');
+                    break;
+                case 'leaves':
+                    addNoise(ctx, '#0B5345', 0.4);
+                    break;
+                case 'sand':
+                    addNoise(ctx, '#D2B48C', 0.2);
+                    break;
+                case 'water':
+                    addWaterPattern(ctx, '#0D5D8C');
+                    break;
+                case 'bedrock':
+                    addNoise(ctx, '#2F2F2F', 0.5);
+                    addCracks(ctx, '#1A1A1A');
+                    break;
+                case 'coal':
+                    addNoise(ctx, '#1C1C1C', 0.3);
+                    addShine(ctx, '#4F4F4F');
+                    break;
+            }
+            
+            // Add border
+            ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+            ctx.strokeRect(0, 0, 16, 16);
+            
+            return canvas;
+        }
+        
+        // Texture helper functions
+        function addNoise(ctx, color, intensity) {
+            const imgData = ctx.getImageData(0, 0, 16, 16);
+            const data = imgData.data;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                if (Math.random() < intensity) {
+                    ctx.fillStyle = color;
+                    const pixelIndex = i / 4;
+                    const x = pixelIndex % 16;
+                    const y = Math.floor(pixelIndex / 16);
+                    ctx.fillRect(x, y, 1, 1);
+                }
+            }
+        }
+        
+        function addCracks(ctx, color) {
+            ctx.strokeStyle = color;
+            ctx.beginPath();
+            
+            for (let i = 0; i < 3; i++) {
+                const startX = Math.random() * 16;
+                const startY = Math.random() * 16;
+                ctx.moveTo(startX, startY);
+                
+                const length = 3 + Math.random() * 5;
+                const angle = Math.random() * Math.PI * 2;
+                ctx.lineTo(
+                    startX + Math.cos(angle) * length,
+                    startY + Math.sin(angle) * length
+                );
+            }
+            
+            ctx.stroke();
+        }
+        
+        function addWoodGrain(ctx, color) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1;
+            
+            for (let i = 0; i < 16; i += 2) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(16, i);
+                ctx.stroke();
+            }
+        }
+        
+        function addWaterPattern(ctx, color) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 0.5;
+            
+            for (let i = 0; i < 16; i += 4) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                
+                for (let x = 0; x < 16; x += 2) {
+                    ctx.lineTo(x, i + Math.sin(x/2) * 1.5);
+                }
+                
+                ctx.stroke();
+            }
+        }
+        
+        function addShine(ctx, color) {
+            const shine = Math.floor(Math.random() * 16);
+            const shineY = Math.floor(Math.random() * 16);
+            
+            ctx.fillStyle = color;
+            ctx.fillRect(shine, shineY, 2, 2);
+        }
+        
+        // Create game objects and initialize
+        function create() {
+            // Initialize noise for terrain generation
+            perlinNoise = createNoise2D(Date.now());
+            
+            // Create physics groups
+            blocks = this.physics.add.staticGroup();
+            
+            // Initialize world
+            generateWorld(this);
+            
+            // Create player
+            player = this.physics.add.sprite(0, -100, 'player');
+            player.setCollideWorldBounds(false);
+            
+            // Set up camera to follow player
+            this.cameras.main.startFollow(player);
+            this.cameras.main.setZoom(1);
+            camera = this.
