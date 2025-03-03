@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terraria-like 2D Game with Phaser</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #000;
+        }
+        canvas {
+            display: block;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            background: #8b4513;
+            border: 2px solid #000;
+            border-radius: 5px;
+            font-size: 20px;
+            color: #fff;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <button class="control-btn" id="leftBtn">←</button>
+        <button class="control-btn" id="rightBtn">→</button>
+        <button class="control-btn" id="jumpBtn">↑</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <script>
+        const config = {
+            type: Phaser.AUTO,
+            width: 800,
+            height: 600,
+            physics: {
+                default: 'arcade',
+                arcade: {
+                    gravity: { y: 300 },
+                    debug: false
+                }
+            },
+            scene: {
+                preload: preload,
+                create: create,
+                update: update
+            },
+            scale: {
+                mode: Phaser.Scale.FIT,
+                autoCenter: Phaser.Scale.CENTER_BOTH
+            }
+        };
+
+        const game = new Phaser.Game(config);
+
+        let player;
+        let cursors;
+        let platforms;
+        let clouds;
+        let touchControls = {};
+        let isTouching = false;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchDeltaX = 0;
+        let touchDeltaY = 0;
+
+        function preload() {
+            this.load.image('sky', 'https://labs.phaser.io/assets/skies/blue.jpg');
+            this.load.image('grass', 'https://labs.phaser.io/assets/tilemaps/tiles/catastrophi_tiles_16.png');
+            this.load.image('dirt', 'https://labs.phaser.io/assets/tilemaps/tiles/catastrophi_tiles_16.png');
+            this.load.spritesheet('dude', 'https://labs.phaser.io/assets/sprites/dude.png', {
+                frameWidth: 32,
+                frameHeight: 48
+            });
+            this.load.image('cloud', 'https://labs.phaser.io/assets/sprites/cloud1.png');
+        }
+
+        function create() {
+            const sky = this.add.image(400, 300, 'sky').setScale(2);
+
+            platforms = this.physics.add.staticGroup();
+
+            for (let x = 0; x < 800; x += 16) {
+                const grassTile = platforms.create(x + 8, 568, 'grass').setScale(1).refreshBody();
+                grassTile.setTint(0x00ff00);
+            }
+
+            for (let y = 552; y >= 536; y -= 16) {
+                for (let x = 0; x < 800; x += 16) {
+                    const dirtTile = platforms.create(x + 8, y, 'dirt').setScale(1).refreshBody();
+                    dirtTile.setTint(0x8b4513);
+                }
+            }
+
+            const floatingPlatforms = [
+                [200, 400], [600, 400],
+                [100, 300], [700, 300],
+                [400, 200]
+            ];
+
+            floatingPlatforms.forEach(([x, y]) => {
+                for (let i = -2; i <= 2; i++) {
+                    const grassTile = platforms.create(x + i * 16, y, 'grass').setScale(1).refreshBody();
+                    grassTile.setTint(0x00ff00);
+                }
+            });
+
+            clouds = this.add.group();
+            const cloudPositions = [
+                [100, 100], [300, 150], [600, 120], [700, 80]
+            ];
+            cloudPositions.forEach(([x, y]) => {
+                const cloud = clouds.create(x, y, 'cloud').setScale(0.5).setAlpha(0.8);
+                cloud.setDepth(-1);
+                this.tweens.add({
+                    targets: cloud,
+                    x: x + 50,
+                    duration: 5000,
+                    yoyo: true,
+                    repeat: -1
+                });
+            });
+
+            player = this.physics.add.sprite(100, 400, 'dude');
+            player.setBounce(0.2);
+            player.setCollideWorldBounds(true);
+            player.setScale(1.5);
+
+            this.anims.create({
+                key: 'left',
+                frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 3 }),
+                frameRate: 10,
+                repeat: -1
+            });
+
+            this.anims.create({
+                key: 'turn',
+                frames: [{ key: 'dude', frame: 4 }],
+                frameRate: 20
+            });
+
+            this.anims.create({
+                key: 'right',
+                frames: this.anims.generateFrameNumbers('dude', { start: 5, end: 8 }),
+                frameRate: 10,
+                repeat: -1
+            });
+
+            this.physics.add.collider(player, platforms);
+
+            const particles = this.add.particles('cloud');
+            const emitter = particles.createEmitter({
+                speed: { min: -10, max: 10 },
+                angle: { min: 0, max: 360 },
+                scale: { start: 0.2, end: 0 },
+                blendMode: 'ADD',
+                lifespan: 3000,
+                frequency: 200,
+                x: { min: 0, max: 800 },
+                y: { min: 0, max: 400 },
+                tint: 0xffff00
+            });
+
+            cursors = this.input.keyboard.createCursorKeys();
+
+            // 添加滑动控制
+            this.input.on('pointerdown', (pointer) => {
+                isTouching = true;
+                touchStartX = pointer.x;
+                touchStartY = pointer.y;
+            });
+
+            this.input.on('pointermove', (pointer) => {
+                if (isTouching) {
+                    touchDeltaX = pointer.x - touchStartX;
+                    touchDeltaY = pointer.y - touchStartY;
+                }
+            });
+
+            this.input.on('pointerup', () => {
+                isTouching = false;
+                touchDeltaX = 0;
+                touchDeltaY = 0;
+                player.setVelocityX(0);
+                player.anims.play('turn');
+            });
+
+            setupTouchControls.call(this);
+        }
+
+        function setupTouchControls() {
+            touchControls.left = document.getElementById('leftBtn');
+            touchControls.right = document.getElementById('rightBtn');
+            touchControls.jump = document.getElementById('jumpBtn');
+
+            touchControls.left.addEventListener('touchstart', () => {
+                player.setVelocityX(-160);
+                player.anims.play('left', true);
+            });
+            touchControls.right.addEventListener('touchstart', () => {
+                player.setVelocityX(160);
+                player.anims.play('right', true);
+            });
+            touchControls.jump.addEventListener('touchstart', () => {
+                if (player.body.touching.down) {
+                    player.setVelocityY(-330);
+                }
+            });
+
+            touchControls.left.addEventListener('touchend', () => {
+                player.setVelocityX(0);
+                player.anims.play('turn');
+            });
+            touchControls.right.addEventListener('touchend', () => {
+                player.setVelocityX(0);
+                player.anims.play('turn');
+            });
+
+            Object.values(touchControls).forEach(btn => {
+                btn.addEventListener('touchmove', (e) => e.preventDefault());
+            });
+        }
+
+        function update() {
+            // 键盘控制
+            if (cursors.left.isDown) {
+                player.setVelocityX(-160);
+                player.anims.play('left', true);
+            } else if (cursors.right.isDown) {
+                player.setVelocityX(160);
+                player.anims.play('right', true);
+            } else if (!isTouching) {
+                player.setVelocityX(0);
+                player.anims.play('turn');
+            }
+
+            if (cursors.up.isDown && player.body.touching.down) {
+                player.setVelocityY(-330);
+            }
+
+            // 滑动控制
+            if (isTouching) {
+                // 左右滑动控制移动
+                if (Math.abs(touchDeltaX) > 10) { // 滑动阈值
+                    if (touchDeltaX < 0) {
+                        player.setVelocityX(-160);
+                        player.anims.play('left', true);
+                    } else {
+                        player.setVelocityX(160);
+                        player.anims.play('right', true);
+                    }
+                }
+
+                // 上滑控制跳跃
+                if (touchDeltaY < -50 && player.body.touching.down) { // 上滑阈值
+                    player.setVelocityY(-330);
+                    touchStartY = touchStartY + touchDeltaY; // 重置起始点，避免重复跳跃
+                }
+            }
+        }
+    </script>
+</body>
+</html>
