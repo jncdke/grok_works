@@ -1,3 +1,5 @@
+使用数学标记，我可以将该命题表达为：
+
 $\forall \mathcal{N}_1, \forall \mathbf{x}, \forall \text{chain} = {f_1, f_2, \ldots, f_n}, \exists \mathcal{N}_2 : \mathcal{N}2(\mathbf{x}) = (f_n \circ f{n-1} \circ \ldots \circ f_1)(\mathbf{x})$
 
 其中：
